@@ -37,6 +37,7 @@ public class TestConfig {
     }
 
     @Bean
+    @Primary
     public EmailService emailService() {
         // Create a no-op implementation for testing
         return new EmailService() {
