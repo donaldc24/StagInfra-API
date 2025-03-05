@@ -3,12 +3,14 @@ package com.stagllc.staginfra.service;
 
 import com.stagllc.staginfra.model.User;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.security.Key;
@@ -86,5 +88,22 @@ public class JwtService {
     private Key getSignInKey() {
         byte[] keyBytes = Decoders.BASE64.decode(secretKey);
         return Keys.hmacShaKeyFor(keyBytes);
+    }
+
+    public String generateRefreshToken(User user) {
+        return buildToken(new HashMap<>(), user, refreshExpiration);
+    }
+
+    public String refreshToken(String refreshToken) {
+        final String userEmail = extractUsername(refreshToken);
+
+        if (userEmail != null && !isTokenExpired(refreshToken)) {
+            // Create a new access token
+            User user = userRepository.findByEmail(userEmail)
+                    .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+            return generateToken(user);
+        }
+
+        throw new JwtException("Invalid or expired refresh token");
     }
 }

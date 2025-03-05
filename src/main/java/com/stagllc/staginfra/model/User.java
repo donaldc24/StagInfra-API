@@ -1,6 +1,7 @@
-// src/main/java/com/stagllc/staginfra/model/User.java
 package com.stagllc.staginfra.model;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -63,6 +64,54 @@ public class User {
 
     @Column
     private String roles;
+
+    @Column(columnDefinition = "TEXT")
+    private String activeSessions; // Will store JSON array of session tokens
+
+    // Add getter and setter methods
+    public String getActiveSessions() {
+        return activeSessions == null ? "[]" : activeSessions;
+    }
+
+    public void setActiveSessions(String activeSessions) {
+        this.activeSessions = activeSessions;
+    }
+
+    // Helper methods to manage sessions
+    public List<String> getActiveSessionsList() {
+        try {
+            return new ObjectMapper().readValue(getActiveSessions(), new TypeReference<List<String>>() {});
+        } catch (Exception e) {
+            return new ArrayList<>();
+        }
+    }
+
+    public void addSession(String token) {
+        List<String> sessions = getActiveSessionsList();
+        if (!sessions.contains(token)) {
+            sessions.add(token);
+            try {
+                this.activeSessions = new ObjectMapper().writeValueAsString(sessions);
+            } catch (Exception e) {
+                throw new RuntimeException("Error storing session", e);
+            }
+        }
+    }
+
+    public void removeSession(String token) {
+        List<String> sessions = getActiveSessionsList();
+        if (sessions.remove(token)) {
+            try {
+                this.activeSessions = new ObjectMapper().writeValueAsString(sessions);
+            } catch (Exception e) {
+                throw new RuntimeException("Error removing session", e);
+            }
+        }
+    }
+
+    public void clearAllSessions() {
+        this.activeSessions = "[]";
+    }
 
     public String getRoles() {
         return roles == null ? "" : roles;

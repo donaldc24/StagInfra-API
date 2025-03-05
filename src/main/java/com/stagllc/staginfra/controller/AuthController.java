@@ -12,15 +12,14 @@ import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Timer;
-import java.util.TimerTask;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+
 
 @RestController
 @RequestMapping("/api/auth")
@@ -82,6 +81,21 @@ public class AuthController {
         try {
             // Attempt to login
             User user = userService.loginUser(request.getEmail(), request.getPassword());
+
+            if (user != null && passwordMatches) {
+                // Generate JWT token
+                String token = userService.generateToken(user);
+                String refreshToken = userService.generateRefreshToken(user);
+
+                // Store the token in the user's active sessions
+                user.addSession(token);
+                user.setLastSuccessfulToken(refreshToken);
+                userRepository.save(user);
+
+                // Return successful response
+                UserDTO userDto = UserDTO.fromUser(user);
+                return ResponseEntity.ok(new AuthResponse(true, "Login successful", token, refreshToken, userDto));
+            }
 
             if (user == null) {
                 // Reset rate limiter on successful login
@@ -172,6 +186,166 @@ public class AuthController {
         } else {
             return ResponseEntity.badRequest().body(AuthResponse.error("Failed to resend verification email"));
         }
+    }
+
+    @PostMapping("/refresh-token")
+    public ResponseEntity<AuthResponse> refreshToken(@RequestParam String refreshToken) {
+        try {
+            // Validate refresh token
+            String userEmail = jwtService.extractUsername(refreshToken);
+            if (userEmail == null) {
+                return ResponseEntity.badRequest()
+                        .body(AuthResponse.error("Invalid refresh token"));
+            }
+
+            // Find the user
+            Optional<User> userOpt = userRepository.findByEmail(userEmail);
+            if (userOpt.isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(AuthResponse.error("User not found"));
+            }
+
+            User user = userOpt.get();
+
+            // Verify the refresh token hasn't been revoked
+            if (!user.getLastSuccessfulToken().equals(refreshToken)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(AuthResponse.error("Refresh token has been revoked"));
+            }
+
+            // Generate new tokens if the refresh token is valid
+            if (!jwtService.isTokenExpired(refreshToken)) {
+                // Generate new access token
+                String newToken = jwtService.generateToken(user);
+                String newRefreshToken = jwtService.generateRefreshToken(user);
+
+                // Update user's refresh token
+                user.setLastSuccessfulToken(newRefreshToken);
+                userRepository.save(user);
+
+                // Return the new tokens
+                UserDTO userDto = UserDTO.fromUser(user);
+                return ResponseEntity.ok(new AuthResponse(true, "Token refreshed successfully", newToken, userDto));
+            } else {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(AuthResponse.error("Refresh token expired"));
+            }
+        } catch (Exception e) {
+            logger.error("Error refreshing token", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(AuthResponse.error("Error refreshing token"));
+        }
+    }
+
+    @GetMapping("/active-sessions")
+    public ResponseEntity<Map<String, Object>> getActiveSessions(
+            @RequestHeader("Authorization") String authHeader) {
+
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Extract token
+        String token = authHeader.substring(7);
+        String userEmail = jwtService.extractUsername(token);
+
+        if (userEmail == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Get user and their sessions
+        Optional<User> userOpt = userRepository.findByEmail(userEmail);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        User user = userOpt.get();
+        List<String> sessions = user.getActiveSessionsList();
+
+        // Decode session info for display
+        List<Map<String, Object>> sessionInfo = new ArrayList<>();
+        for (String sessionToken : sessions) {
+            try {
+                // Extract session info from token
+                Claims claims = jwtService.extractAllClaims(sessionToken);
+                Date issuedAt = claims.getIssuedAt();
+                Date expiration = claims.getExpiration();
+
+                // Create session info object
+                Map<String, Object> session = new HashMap<>();
+                session.put("token", sessionToken);
+                session.put("issuedAt", issuedAt.toString());
+                session.put("expiration", expiration.toString());
+                session.put("isCurrent", sessionToken.equals(token));
+
+                sessionInfo.add(session);
+            } catch (Exception e) {
+                // Skip invalid tokens
+            }
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("sessions", sessionInfo);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/logout-all-devices")
+    public ResponseEntity<AuthResponse> logoutAllDevices(
+            @RequestHeader("Authorization") String authHeader) {
+
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Extract token
+        String token = authHeader.substring(7);
+        String userEmail = jwtService.extractUsername(token);
+
+        if (userEmail == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Get user and clear all sessions
+        Optional<User> userOpt = userRepository.findByEmail(userEmail);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        User user = userOpt.get();
+        user.clearAllSessions();
+        userRepository.save(user);
+
+        return ResponseEntity.ok(AuthResponse.success("Logged out from all devices"));
+    }
+
+    @PostMapping("/logout-device")
+    public ResponseEntity<AuthResponse> logoutDevice(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestParam String sessionToken) {
+
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Extract token
+        String token = authHeader.substring(7);
+        String userEmail = jwtService.extractUsername(token);
+
+        if (userEmail == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Get user and remove specific session
+        Optional<User> userOpt = userRepository.findByEmail(userEmail);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        User user = userOpt.get();
+        user.removeSession(sessionToken);
+        userRepository.save(user);
+
+        return ResponseEntity.ok(AuthResponse.success("Device logged out"));
     }
 
     // Helper method to get client IP address
