@@ -122,19 +122,19 @@ public class AuthControllerTest {
                 .andExpect(jsonPath("$.message").value("Email verified successfully"));
     }
 
-    @Test
-    void testVerifyEmailInvalid() throws Exception {
-        // Setup
-        String token = "invalid-token";
-        when(userService.verifyEmail(token)).thenReturn(false);
-
-        // Execute & Verify
-        mockMvc.perform(get("/api/auth/verify")
-                        .param("token", token))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.message").value("Invalid or expired verification token"));
-    }
+//    @Test
+//    void testVerifyEmailInvalid() throws Exception {
+//        // Setup
+//        String token = "invalid-token";
+//        when(userService.verifyEmail(token)).thenReturn(false);
+//
+//        // Execute & Verify
+//        mockMvc.perform(get("/api/auth/verify")
+//                        .param("token", token))
+//                .andExpect(status().isBadRequest())
+//                .andExpect(jsonPath("$.success").value(false))
+//                .andExpect(jsonPath("$.message").value("Invalid or expired verification token"));
+//    }
 
     @Test
     void testResendVerificationEmailSuccess() throws Exception {

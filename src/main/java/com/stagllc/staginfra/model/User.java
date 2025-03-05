@@ -51,6 +51,18 @@ public class User {
     @Column
     private LocalDateTime lockedUntil;
 
+    @Column
+    private String lastSuccessfulToken;
+
+    // Add getter and setter
+    public String getLastSuccessfulToken() {
+        return lastSuccessfulToken;
+    }
+
+    public void setLastSuccessfulToken(String lastSuccessfulToken) {
+        this.lastSuccessfulToken = lastSuccessfulToken;
+    }
+
     // Default constructor required by JPA
     public User() {
         this.createdAt = LocalDateTime.now();

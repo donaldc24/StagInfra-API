@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -70,34 +71,64 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public boolean verifyEmail(String token) {
+        logger.info("Verifying email with token: {}", token);
+
+        if (token == null || token.isBlank()) {
+            logger.warn("Empty or null verification token");
+            return false;
+        }
+
+        // First try to find by current token
         Optional<User> userOpt = userRepository.findByVerificationToken(token);
 
-        if (userOpt.isPresent()) {
-            User user = userOpt.get();
+        if (userOpt.isEmpty()) {
+            logger.warn("No user found with verification token: {}", token);
+            return false;
+        }
 
-            if (user.isVerificationTokenValid()) {
+        User user = userOpt.get();
+        logger.info("Found user for verification: {}", user.getEmail());
+
+        // If user is already verified, return true (idempotent operation)
+        if (user.isEmailVerified()) {
+            logger.info("User already verified: {}", user.getEmail());
+            return true;
+        }
+
+        if (user.isVerificationTokenValid()) {
+            try {
                 user.setEmailVerified(true);
-                user.setVerificationToken(null);
-                user.setVerificationTokenExpiry(null);
+                // Don't clear the token immediately to allow for duplicate requests
+                // We'll keep the token but mark the account as verified
                 userRepository.save(user);
 
                 // Send welcome email
-                emailService.sendWelcomeEmail(user.getEmail());
+                try {
+                    emailService.sendWelcomeEmail(user.getEmail());
+                } catch (Exception e) {
+                    logger.error("Failed to send welcome email to {}", user.getEmail(), e);
+                    // Don't fail the verification if the welcome email fails
+                }
 
-                logger.info("Email verified for user: {}", user.getEmail());
+                logger.info("Email verified successfully for user: {}", user.getEmail());
                 return true;
-            } else {
-                logger.warn("Expired verification token used for user: {}", user.getEmail());
-                // Token expired, generate a new one
+            } catch (Exception e) {
+                logger.error("Error saving user after verification", e);
+                throw e;
+            }
+        } else {
+            logger.warn("Expired verification token used for user: {}", user.getEmail());
+            // Token expired, generate a new one
+            try {
                 user.generateVerificationToken();
                 userRepository.save(user);
                 emailService.sendVerificationEmail(user.getEmail(), user.getVerificationToken());
+                logger.info("Generated and sent new verification token for user: {}", user.getEmail());
+            } catch (Exception e) {
+                logger.error("Error generating new verification token", e);
             }
-        } else {
-            logger.warn("Invalid verification token used: {}", token);
+            return false;
         }
-
-        return false;
     }
 
     @Override

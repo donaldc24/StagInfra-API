@@ -1,4 +1,3 @@
-// src/main/java/com/stagllc/staginfra/controller/AuthController.java
 package com.stagllc.staginfra.controller;
 
 import com.stagllc.staginfra.dto.AuthResponse;
@@ -17,11 +16,17 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
     private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
+
+    private final Map<String, Boolean> recentVerifications = new ConcurrentHashMap<>();
 
     @Autowired
     private UserService userService;
@@ -122,12 +127,21 @@ public class AuthController {
 
     @GetMapping("/verify")
     public ResponseEntity<AuthResponse> verifyEmail(@RequestParam String token) {
-        boolean verified = userService.verifyEmail(token);
+        logger.info("Received verification request for token: {}", token);
 
-        if (verified) {
-            return ResponseEntity.ok(AuthResponse.success("Email verified successfully"));
-        } else {
-            return ResponseEntity.badRequest().body(AuthResponse.error("Invalid or expired verification token"));
+        try {
+            boolean verified = userService.verifyEmail(token);
+
+            if (verified) {
+                logger.info("Email verification successful for token: {}", token);
+                return ResponseEntity.ok(AuthResponse.success("Email verified successfully"));
+            } else {
+                logger.warn("Email verification failed for token: {}", token);
+                return ResponseEntity.ok(AuthResponse.error("Invalid or expired verification token"));
+            }
+        } catch (Exception e) {
+            logger.error("Error during email verification", e);
+            return ResponseEntity.ok(AuthResponse.error("An error occurred during verification: " + e.getMessage()));
         }
     }
 

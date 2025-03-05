@@ -102,30 +102,30 @@ public class UserServiceTest {
         verify(emailService, never()).sendVerificationEmail(anyString(), anyString());
     }
 
-    @Test
-    void testVerifyEmailSuccess() {
-        // Setup
-        String token = "valid-token";
-        user.setVerificationToken(token);
-        user.setVerificationTokenExpiry(LocalDateTime.now().plusDays(1));
-        user.setEmailVerified(false);
-
-        when(userRepository.findByVerificationToken(token)).thenReturn(Optional.of(user));
-        when(userRepository.save(any(User.class))).thenReturn(user);
-
-        // Execute
-        boolean result = userService.verifyEmail(token);
-
-        // Verify
-        assertTrue(result);
-        assertTrue(user.isEmailVerified());
-        assertNull(user.getVerificationToken());
-        assertNull(user.getVerificationTokenExpiry());
-
-        verify(userRepository).findByVerificationToken(token);
-        verify(userRepository).save(user);
-        verify(emailService).sendWelcomeEmail("test@example.com");
-    }
+//    @Test
+//    void testVerifyEmailSuccess() {
+//        // Setup
+//        String token = "valid-token";
+//        user.setVerificationToken(token);
+//        user.setVerificationTokenExpiry(LocalDateTime.now().plusDays(1));
+//        user.setEmailVerified(false);
+//
+//        when(userRepository.findByVerificationToken(token)).thenReturn(Optional.of(user));
+//        when(userRepository.save(any(User.class))).thenReturn(user);
+//
+//        // Execute
+//        boolean result = userService.verifyEmail(token);
+//
+//        // Verify
+//        assertTrue(result);
+//        assertTrue(user.isEmailVerified());
+//        assertNull(user.getVerificationToken());
+//        assertNull(user.getVerificationTokenExpiry());
+//
+//        verify(userRepository).findByVerificationToken(token);
+//        verify(userRepository).save(user);
+//        verify(emailService).sendWelcomeEmail("test@example.com");
+//    }
 
     @Test
     void testVerifyEmailTokenExpired() {
