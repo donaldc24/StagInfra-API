@@ -2,9 +2,6 @@ target/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
-*.properties
-*.db
-*.h2.db
 
 ### IntelliJ IDEA ###
 .idea/modules.xml
@@ -33,6 +30,7 @@ target/
 build/
 !**/src/main/**/build/
 !**/src/test/**/build/
+/data/
 
 ### VS Code ###
 .vscode/
