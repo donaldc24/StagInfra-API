@@ -1,6 +1,6 @@
 package com.stagllc.staginfra.controller;
 
-import com.stagllc.staginfra.config.TestSecurityConfig;
+import com.stagllc.staginfra.config.TestControllerConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -16,9 +16,11 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import org.springframework.security.test.context.support.WithMockUser;
 
 @WebMvcTest(CustomErrorController.class)
-@Import(TestSecurityConfig.class)
+@Import(TestControllerConfig.class)
+@WithMockUser
 public class CustomErrorControllerTest {
 
     @Autowired

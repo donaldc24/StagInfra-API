@@ -2,22 +2,14 @@ package com.stagllc.staginfra.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stagllc.staginfra.dto.CostRequest;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.stagllc.staginfra.config.TestSecurityConfig;
-import com.stagllc.staginfra.dto.CostRequest;
+import com.stagllc.staginfra.config.TestControllerConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
@@ -28,7 +20,8 @@ import java.util.List;
 import java.util.Map;
 
 @WebMvcTest(CostController.class)
-@Import(TestSecurityConfig.class)
+@Import(TestControllerConfig.class)
+@WithMockUser
 class CostControllerTest {
 
     @Autowired

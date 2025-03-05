@@ -3,6 +3,7 @@ package com.stagllc.staginfra.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -12,6 +13,7 @@ import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
 @EnableWebSecurity
+@Profile("!test") // Only active when not in test profile
 public class SecurityConfig {
 
     @Bean
@@ -29,7 +31,7 @@ public class SecurityConfig {
                         // Public endpoints
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/health").permitAll()
-                        .requestMatchers("/api/cost/**").permitAll()
+                        .requestMatchers("/api/cost/**").permitAll() // Allow cost endpoints without authentication
                         .requestMatchers("/error").permitAll()
                         .requestMatchers("/", "/signup", "/login", "/verify-email", "/public/**").permitAll()
                         // Protected endpoints

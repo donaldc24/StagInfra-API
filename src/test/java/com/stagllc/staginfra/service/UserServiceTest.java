@@ -1,6 +1,6 @@
-// src/test/java/com/stagllc/staginfra/service/UserServiceTest.java
 package com.stagllc.staginfra.service;
 
+import com.stagllc.staginfra.config.TestConfig;
 import com.stagllc.staginfra.dto.RegistrationRequest;
 import com.stagllc.staginfra.model.User;
 import com.stagllc.staginfra.repository.UserRepository;
@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -21,7 +22,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-@SpringBootTest
+@SpringBootTest(classes = TestConfig.class)
 @ActiveProfiles("test")
 public class UserServiceTest {
 
