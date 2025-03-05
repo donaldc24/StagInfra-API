@@ -21,12 +21,19 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+    private final JwtService jwtService;
 
     @Autowired
-    public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder, EmailService emailService) {
+    public UserServiceImpl(
+            UserRepository userRepository,
+            PasswordEncoder passwordEncoder,
+            EmailService emailService,
+            JwtService jwtService
+    ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
+        this.jwtService = jwtService;
     }
 
     @Override
@@ -118,5 +125,63 @@ public class UserServiceImpl implements UserService {
         }
 
         return false;
+    }
+
+    @Override
+    @Transactional
+    public User loginUser(String email, String password) {
+        Optional<User> userOpt = userRepository.findByEmail(email);
+
+        if (userOpt.isEmpty()) {
+            logger.warn("Login attempt for non-existing user: {}", email);
+            return null;
+        }
+
+        User user = userOpt.get();
+
+        // Check if account is locked
+        if (user.isAccountLocked()) {
+            logger.warn("Login attempt for locked account: {}", email);
+            return null;
+        }
+
+        // Verify password
+        boolean passwordMatches = passwordEncoder.matches(password, user.getPassword());
+
+        if (!passwordMatches) {
+            logger.warn("Invalid password for user: {}", email);
+            return null;
+        }
+
+        return user;
+    }
+
+    @Override
+    @Transactional
+    public void recordFailedLoginAttempt(String email) {
+        userRepository.findByEmail(email).ifPresent(user -> {
+            user.incrementFailedLoginAttempts();
+            userRepository.save(user);
+        });
+    }
+
+    @Override
+    @Transactional
+    public void resetFailedLoginAttempts(String email) {
+        userRepository.findByEmail(email).ifPresent(user -> {
+            user.resetFailedLoginAttempts();
+            userRepository.save(user);
+        });
+    }
+
+    @Override
+    public String generateToken(User user) {
+        return jwtService.generateToken(user);
+    }
+
+    @Override
+    @Transactional
+    public User updateUser(User user) {
+        return userRepository.save(user);
     }
 }

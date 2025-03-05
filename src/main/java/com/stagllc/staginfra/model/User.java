@@ -45,10 +45,17 @@ public class User {
     @Column
     private LocalDateTime lastLogin;
 
+    @Column
+    private int failedLoginAttempts;
+
+    @Column
+    private LocalDateTime lockedUntil;
+
     // Default constructor required by JPA
     public User() {
         this.createdAt = LocalDateTime.now();
         this.emailVerified = false;
+        this.failedLoginAttempts = 0;
     }
 
     public User(String email, String password, String firstName, String lastName) {
@@ -58,6 +65,7 @@ public class User {
         this.lastName = lastName;
         this.createdAt = LocalDateTime.now();
         this.emailVerified = false;
+        this.failedLoginAttempts = 0;
         this.generateVerificationToken();
     }
 
@@ -70,6 +78,24 @@ public class User {
         return verificationToken != null &&
                 verificationTokenExpiry != null &&
                 LocalDateTime.now().isBefore(verificationTokenExpiry);
+    }
+
+    public boolean isAccountLocked() {
+        return lockedUntil != null && LocalDateTime.now().isBefore(lockedUntil);
+    }
+
+    public void incrementFailedLoginAttempts() {
+        this.failedLoginAttempts++;
+
+        // Lock account after 5 failed attempts
+        if (this.failedLoginAttempts >= 5) {
+            this.lockedUntil = LocalDateTime.now().plusMinutes(15); // Lock for 15 minutes
+        }
+    }
+
+    public void resetFailedLoginAttempts() {
+        this.failedLoginAttempts = 0;
+        this.lockedUntil = null;
     }
 
     // Getters and Setters
@@ -168,5 +194,21 @@ public class User {
 
     public void setLastLogin(LocalDateTime lastLogin) {
         this.lastLogin = lastLogin;
+    }
+
+    public int getFailedLoginAttempts() {
+        return failedLoginAttempts;
+    }
+
+    public void setFailedLoginAttempts(int failedLoginAttempts) {
+        this.failedLoginAttempts = failedLoginAttempts;
+    }
+
+    public LocalDateTime getLockedUntil() {
+        return lockedUntil;
+    }
+
+    public void setLockedUntil(LocalDateTime lockedUntil) {
+        this.lockedUntil = lockedUntil;
     }
 }

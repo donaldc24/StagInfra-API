@@ -16,7 +16,7 @@ public class EmailServiceImpl implements EmailService {
 
     public EmailServiceImpl(
             JavaMailSender mailSender,
-            @Value("${app.base-url:http://localhost:8080}") String baseUrl,
+            @Value("${app.base-url:http://localhost:8081}") String baseUrl,
             @Value("${spring.mail.username:noreply@example.com}") String fromEmail) {
         this.mailSender = mailSender;
         this.baseUrl = baseUrl;
@@ -31,7 +31,8 @@ public class EmailServiceImpl implements EmailService {
         message.setTo(to);
         message.setSubject("Verify your Cloud Architecture Designer account");
 
-        String verificationUrl = baseUrl + "/verify-email?token=" + token;
+//        String verificationUrl = baseUrl + "/verify-email?token=" + token;
+        String verificationUrl = "http://localhost:3000/verify-email?token=" + token;
 
         message.setText("Hello,\n\n" +
                 "Thank you for registering with Cloud Architecture Designer! " +
