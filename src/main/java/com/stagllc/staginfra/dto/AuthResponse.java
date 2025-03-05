@@ -1,4 +1,3 @@
-// src/main/java/com/stagllc/staginfra/dto/AuthResponse.java
 package com.stagllc.staginfra.dto;
 
 public class AuthResponse {

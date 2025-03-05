@@ -1,13 +1,11 @@
 package com.stagllc.staginfra.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.stagllc.staginfra.config.ControllerTestConfig;
-import com.stagllc.staginfra.config.TestSecurityConfig;
 import com.stagllc.staginfra.dto.LoginRequest;
 import com.stagllc.staginfra.dto.RegistrationRequest;
 import com.stagllc.staginfra.dto.UserDTO;
 import com.stagllc.staginfra.model.User;
-import com.stagllc.staginfra.security.JwtAuthenticationFilter;
+import com.stagllc.staginfra.repository.UserRepository;
 import com.stagllc.staginfra.service.JwtService;
 import com.stagllc.staginfra.service.RateLimiterService;
 import com.stagllc.staginfra.service.UserService;
@@ -17,11 +15,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Collections;
+import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -30,8 +30,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(AuthController.class)
-@Import(ControllerTestConfig.class)
+@WebMvcTest(controllers = AuthController.class)
 @AutoConfigureMockMvc(addFilters = false)
 public class AuthControllerTest {
 
@@ -49,6 +48,12 @@ public class AuthControllerTest {
 
     @MockBean
     private JwtService jwtService;
+
+    @MockBean
+    private PasswordEncoder passwordEncoder;
+
+    @MockBean
+    private UserRepository userRepository;
 
     private RegistrationRequest validRequest;
     private User testUser;
@@ -78,6 +83,9 @@ public class AuthControllerTest {
         testUserDTO.setLastName(testUser.getLastName());
         testUserDTO.setEmailVerified(true);
         testUserDTO.setRoles(Collections.emptyList());
+
+        // Setup mocks for UserRepository
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(testUser));
     }
 
     @Test

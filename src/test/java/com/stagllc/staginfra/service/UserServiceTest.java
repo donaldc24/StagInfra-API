@@ -6,7 +6,6 @@ import com.stagllc.staginfra.model.User;
 import com.stagllc.staginfra.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -15,7 +14,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.time.LocalDateTime;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -26,9 +24,6 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import com.stagllc.staginfra.dto.UserDTO;
-import org.mockito.Mockito;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import com.stagllc.staginfra.service.JwtService;
 
 @SpringBootTest
 @ActiveProfiles("test")

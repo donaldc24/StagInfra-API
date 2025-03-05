@@ -1,9 +1,12 @@
 // src/test/java/com/stagllc/staginfra/config/TestConfig.java
 package com.stagllc.staginfra.config;
 
+import com.stagllc.staginfra.repository.UserRepository;
 import com.stagllc.staginfra.service.EmailService;
+import com.stagllc.staginfra.service.JwtService;
 import com.stagllc.staginfra.service.RateLimiterService;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;

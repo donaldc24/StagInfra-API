@@ -2,12 +2,14 @@
 package com.stagllc.staginfra.service;
 
 import com.stagllc.staginfra.model.User;
+import com.stagllc.staginfra.repository.UserRepository;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -28,6 +30,12 @@ public class JwtService {
     @Value("${app.security.jwt.expiration}")
     private long jwtExpiration;
 
+    @Value("${app.security.jwt.refresh-expiration:604800000}") // Default 7 days in milliseconds
+    private long refreshExpiration;
+
+    @Autowired
+    private UserRepository userRepository;
+
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
     }
@@ -46,6 +54,10 @@ public class JwtService {
             extraClaims.put("roles", user.getRolesList());
         }
         return buildToken(extraClaims, user, jwtExpiration);
+    }
+
+    public String generateRefreshToken(User user) {
+        return buildToken(new HashMap<>(), user, refreshExpiration);
     }
 
     private String buildToken(
@@ -68,7 +80,7 @@ public class JwtService {
         return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
     }
 
-    private boolean isTokenExpired(String token) {
+    public boolean isTokenExpired(String token) {
         return extractExpiration(token).before(new Date());
     }
 
@@ -76,7 +88,7 @@ public class JwtService {
         return extractClaim(token, Claims::getExpiration);
     }
 
-    private Claims extractAllClaims(String token) {
+    public Claims extractAllClaims(String token) {
         return Jwts
                 .parserBuilder()
                 .setSigningKey(getSignInKey())
@@ -88,10 +100,6 @@ public class JwtService {
     private Key getSignInKey() {
         byte[] keyBytes = Decoders.BASE64.decode(secretKey);
         return Keys.hmacShaKeyFor(keyBytes);
-    }
-
-    public String generateRefreshToken(User user) {
-        return buildToken(new HashMap<>(), user, refreshExpiration);
     }
 
     public String refreshToken(String refreshToken) {

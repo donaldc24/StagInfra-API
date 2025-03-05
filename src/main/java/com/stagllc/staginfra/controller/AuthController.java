@@ -5,6 +5,8 @@ import com.stagllc.staginfra.dto.LoginRequest;
 import com.stagllc.staginfra.dto.RegistrationRequest;
 import com.stagllc.staginfra.dto.UserDTO;
 import com.stagllc.staginfra.model.User;
+import com.stagllc.staginfra.repository.UserRepository;
+import com.stagllc.staginfra.service.JwtService;
 import com.stagllc.staginfra.service.RateLimiterService;
 import com.stagllc.staginfra.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -14,12 +16,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-
 
 @RestController
 @RequestMapping("/api/auth")
@@ -33,6 +35,15 @@ public class AuthController {
 
     @Autowired
     private RateLimiterService rateLimiterService;
+
+    @Autowired
+    private JwtService jwtService;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> registerUser(
@@ -82,44 +93,35 @@ public class AuthController {
             // Attempt to login
             User user = userService.loginUser(request.getEmail(), request.getPassword());
 
-            if (user != null && passwordMatches) {
-                // Generate JWT token
-                String token = userService.generateToken(user);
-                String refreshToken = userService.generateRefreshToken(user);
-
-                // Store the token in the user's active sessions
-                user.addSession(token);
-                user.setLastSuccessfulToken(refreshToken);
-                userRepository.save(user);
-
-                // Return successful response
-                UserDTO userDto = UserDTO.fromUser(user);
-                return ResponseEntity.ok(new AuthResponse(true, "Login successful", token, refreshToken, userDto));
-            }
-
             if (user == null) {
-                // Reset rate limiter on successful login
-                rateLimiterService.resetLimiter(clientIp, "LOGIN");
-
-                // Increment failed login attempts
+                // Record failed login attempt
                 userService.recordFailedLoginAttempt(request.getEmail());
 
-                return ResponseEntity.badRequest()
+                logger.warn("Login failed for email: {}, invalid credentials", request.getEmail());
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(AuthResponse.error("Invalid email or password"));
             }
 
             // Check if email is verified
             if (!user.isEmailVerified()) {
+                logger.warn("Login attempt for unverified email: {}", request.getEmail());
                 return ResponseEntity.badRequest()
                         .body(AuthResponse.error("Please verify your email address before logging in"));
             }
 
-            // Generate JWT token
-//            String token = userService.generateToken(user);
-
+            // Generate JWT token with roles
             Map<String, Object> claims = new HashMap<>();
             claims.put("roles", user.getRolesList());
             String token = userService.generateToken(claims, user);
+
+            // Generate refresh token if "remember me" is enabled
+            String refreshToken = null;
+            if (request.isRememberMe()) {
+                refreshToken = userService.generateToken(new HashMap<>(), user);
+                // Store the refresh token with the user
+                user.setLastSuccessfulToken(refreshToken);
+                userRepository.save(user);
+            }
 
             // Update last login time
             user.setLastLogin(LocalDateTime.now());
@@ -135,7 +137,17 @@ public class AuthController {
             UserDTO userDto = UserDTO.fromUser(user);
 
             logger.info("User logged in successfully: {}", user.getEmail());
-            return ResponseEntity.ok(AuthResponse.loginSuccess(token, userDto));
+
+            // Create appropriate response based on whether we have a refresh token
+            AuthResponse response;
+            if (refreshToken != null) {
+                response = new AuthResponse(true, "Login successful", token, userDto);
+                // You could add the refresh token to the response here if needed
+            } else {
+                response = new AuthResponse(true, "Login successful", token, userDto);
+            }
+
+            return ResponseEntity.ok(response);
 
         } catch (Exception e) {
             logger.error("Login error", e);
@@ -208,7 +220,7 @@ public class AuthController {
             User user = userOpt.get();
 
             // Verify the refresh token hasn't been revoked
-            if (!user.getLastSuccessfulToken().equals(refreshToken)) {
+            if (!refreshToken.equals(user.getLastSuccessfulToken())) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(AuthResponse.error("Refresh token has been revoked"));
             }
@@ -237,115 +249,16 @@ public class AuthController {
         }
     }
 
-    @GetMapping("/active-sessions")
-    public ResponseEntity<Map<String, Object>> getActiveSessions(
-            @RequestHeader("Authorization") String authHeader) {
+    @PostMapping("/logout")
+    public ResponseEntity<AuthResponse> logout() {
+        // Since we're using JWT tokens, server-side logout is minimal
+        // Client will remove the token from storage
 
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
+        // Note: For a more secure implementation, you could maintain a blacklist of invalidated tokens
+        // or implement a token revocation mechanism
 
-        // Extract token
-        String token = authHeader.substring(7);
-        String userEmail = jwtService.extractUsername(token);
-
-        if (userEmail == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-
-        // Get user and their sessions
-        Optional<User> userOpt = userRepository.findByEmail(userEmail);
-        if (userOpt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-
-        User user = userOpt.get();
-        List<String> sessions = user.getActiveSessionsList();
-
-        // Decode session info for display
-        List<Map<String, Object>> sessionInfo = new ArrayList<>();
-        for (String sessionToken : sessions) {
-            try {
-                // Extract session info from token
-                Claims claims = jwtService.extractAllClaims(sessionToken);
-                Date issuedAt = claims.getIssuedAt();
-                Date expiration = claims.getExpiration();
-
-                // Create session info object
-                Map<String, Object> session = new HashMap<>();
-                session.put("token", sessionToken);
-                session.put("issuedAt", issuedAt.toString());
-                session.put("expiration", expiration.toString());
-                session.put("isCurrent", sessionToken.equals(token));
-
-                sessionInfo.add(session);
-            } catch (Exception e) {
-                // Skip invalid tokens
-            }
-        }
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("sessions", sessionInfo);
-        return ResponseEntity.ok(response);
-    }
-
-    @PostMapping("/logout-all-devices")
-    public ResponseEntity<AuthResponse> logoutAllDevices(
-            @RequestHeader("Authorization") String authHeader) {
-
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-
-        // Extract token
-        String token = authHeader.substring(7);
-        String userEmail = jwtService.extractUsername(token);
-
-        if (userEmail == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-
-        // Get user and clear all sessions
-        Optional<User> userOpt = userRepository.findByEmail(userEmail);
-        if (userOpt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-
-        User user = userOpt.get();
-        user.clearAllSessions();
-        userRepository.save(user);
-
-        return ResponseEntity.ok(AuthResponse.success("Logged out from all devices"));
-    }
-
-    @PostMapping("/logout-device")
-    public ResponseEntity<AuthResponse> logoutDevice(
-            @RequestHeader("Authorization") String authHeader,
-            @RequestParam String sessionToken) {
-
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-
-        // Extract token
-        String token = authHeader.substring(7);
-        String userEmail = jwtService.extractUsername(token);
-
-        if (userEmail == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-
-        // Get user and remove specific session
-        Optional<User> userOpt = userRepository.findByEmail(userEmail);
-        if (userOpt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-
-        User user = userOpt.get();
-        user.removeSession(sessionToken);
-        userRepository.save(user);
-
-        return ResponseEntity.ok(AuthResponse.success("Device logged out"));
+        logger.info("User logged out");
+        return ResponseEntity.ok(AuthResponse.success("Successfully logged out"));
     }
 
     // Helper method to get client IP address
