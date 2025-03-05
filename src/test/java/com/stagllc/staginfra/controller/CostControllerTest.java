@@ -2,6 +2,17 @@ package com.stagllc.staginfra.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stagllc.staginfra.dto.CostRequest;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.stagllc.staginfra.config.TestSecurityConfig;
+import com.stagllc.staginfra.dto.CostRequest;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 
 @WebMvcTest(CostController.class)
+@Import(TestSecurityConfig.class)
 class CostControllerTest {
 
     @Autowired
