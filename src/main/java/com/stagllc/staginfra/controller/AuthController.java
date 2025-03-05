@@ -16,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -100,7 +101,11 @@ public class AuthController {
             }
 
             // Generate JWT token
-            String token = userService.generateToken(user);
+//            String token = userService.generateToken(user);
+
+            Map<String, Object> claims = new HashMap<>();
+            claims.put("roles", user.getRolesList());
+            String token = userService.generateToken(claims, user);
 
             // Update last login time
             user.setLastLogin(LocalDateTime.now());

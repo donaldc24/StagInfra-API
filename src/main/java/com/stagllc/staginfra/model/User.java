@@ -4,6 +4,10 @@ package com.stagllc.staginfra.model;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.util.List;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.ArrayList;
 
 @Entity
 @Table(name = "users")
@@ -53,6 +57,55 @@ public class User {
 
     @Column
     private String lastSuccessfulToken;
+
+    @Column
+    private boolean isAdmin;
+
+    @Column
+    private String roles;
+
+    public String getRoles() {
+        return roles == null ? "" : roles;
+    }
+
+    public void setRoles(String roles) {
+        this.roles = roles;
+    }
+
+    public List<String> getRolesList() {
+        if (roles == null || roles.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return Arrays.asList(roles.split(","));
+    }
+
+    public boolean hasRole(String role) {
+        return getRolesList().contains(role);
+    }
+
+    public void addRole(String role) {
+        List<String> currentRoles = new ArrayList<>(getRolesList());
+        if (!currentRoles.contains(role)) {
+            currentRoles.add(role);
+            this.roles = String.join(",", currentRoles);
+        }
+    }
+
+    public void removeRole(String role) {
+        List<String> currentRoles = new ArrayList<>(getRolesList());
+        if (currentRoles.remove(role)) {
+            this.roles = String.join(",", currentRoles);
+        }
+    }
+
+    // Add getter and setter
+    public boolean isAdmin() {
+        return isAdmin;
+    }
+
+    public void setAdmin(boolean admin) {
+        isAdmin = admin;
+    }
 
     // Add getter and setter
     public String getLastSuccessfulToken() {

@@ -40,6 +40,9 @@ public class JwtService {
     }
 
     public String generateToken(Map<String, Object> extraClaims, User user) {
+        if (!extraClaims.containsKey("roles")) {
+            extraClaims.put("roles", user.getRolesList());
+        }
         return buildToken(extraClaims, user, jwtExpiration);
     }
 

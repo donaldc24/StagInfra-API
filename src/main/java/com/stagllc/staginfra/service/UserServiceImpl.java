@@ -2,8 +2,10 @@
 package com.stagllc.staginfra.service;
 
 import com.stagllc.staginfra.dto.RegistrationRequest;
+import com.stagllc.staginfra.dto.UserDTO;
 import com.stagllc.staginfra.model.User;
 import com.stagllc.staginfra.repository.UserRepository;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,9 +13,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -214,5 +217,83 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public User updateUser(User user) {
         return userRepository.save(user);
+    }
+
+    @Override
+    public List<UserDTO> getAllUsers() {
+        List<User> users = userRepository.findAll();
+        return users.stream()
+                .map(UserDTO::fromUser)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public UserDTO manuallyVerifyUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        if (!user.isEmailVerified()) {
+            user.setEmailVerified(true);
+            userRepository.save(user);
+
+            try {
+                emailService.sendWelcomeEmail(user.getEmail());
+            } catch (Exception e) {
+                logger.error("Failed to send welcome email to {}", user.getEmail(), e);
+                // Don't fail the verification if the welcome email fails
+            }
+
+            logger.info("User {} manually verified by admin", user.getEmail());
+        }
+
+        return UserDTO.fromUser(user);
+    }
+
+    @Override
+    @Transactional
+    public boolean makeUserAdmin(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found with ID: " + userId));
+
+        user.addRole("ADMIN");
+        userRepository.save(user);
+
+        logger.info("User {} granted admin role", user.getEmail());
+        return true;
+    }
+
+    @Override
+    public UserDTO getUserById(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found with ID: " + userId));
+        return UserDTO.fromUser(user);
+    }
+
+    @PostConstruct
+    @Transactional
+    public void initializeAdmin() {
+        // Check if admin exists
+        Optional<User> adminUser = userRepository.findByEmail("admin@staginfra.com");
+
+        if (adminUser.isEmpty()) {
+            // Create admin user
+            User admin = new User(
+                    "admin@staginfra.com",
+                    passwordEncoder.encode("AdminPass123!"),
+                    "System",
+                    "Admin"
+            );
+            admin.setEmailVerified(true);
+            admin.addRole("ADMIN");
+            userRepository.save(admin);
+
+            logger.info("Admin user created: admin@staginfra.com");
+        }
+    }
+
+    @Override
+    public String generateToken(Map<String, Object> extraClaims, User user) {
+        return jwtService.generateToken(extraClaims, user);
     }
 }
