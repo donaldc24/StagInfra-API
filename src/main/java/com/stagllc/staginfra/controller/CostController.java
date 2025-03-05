@@ -1,9 +1,9 @@
 package com.stagllc.staginfra.controller;
 
 import com.stagllc.staginfra.dto.CostRequest;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -13,7 +13,7 @@ public class CostController {
     private List<Map<String, Object>> components = List.of();
 
     @GetMapping("/cost")
-    public ResponseEntity<Map<String, Double>> getCost() {
+    public Map<String, Double> getCost() {
         double total = 0.0;
         for (Map<String, Object> comp : components) {
             String type = (String) comp.get("type");
@@ -78,45 +78,43 @@ public class CostController {
             // VPC, subnet, security group components have no cost
         }
         total = Math.round(total * 100.0) / 100.0;
-        return ResponseEntity.ok(Map.of("total", total));
+        Map<String, Double> response = new HashMap<>();
+        response.put("total", total);
+        return response;
     }
 
     @PostMapping("/cost")
-    public ResponseEntity<Void> updateCost(@RequestBody CostRequest request) {
+    public Map<String, String> updateCost(@RequestBody CostRequest request) {
         this.components = request.getComponents() != null ? request.getComponents() : List.of();
-        return ResponseEntity.ok().build();
+        Map<String, String> response = new HashMap<>();
+        response.put("status", "success");
+        return response;
     }
 
     // Helper methods for pricing
     private double getEC2Price(String instanceType) {
-        return switch (instanceType) {
-            case "t2.nano" -> 5.0;
-            case "t2.micro" -> 8.5;
-            case "t2.small" -> 17.0;
-            case "t2.medium" -> 34.0;
-            case "t2.large" -> 68.0;
-            default -> 8.5; // Default to t2.micro pricing
-        };
+        if ("t2.nano".equals(instanceType)) return 5.0;
+        if ("t2.micro".equals(instanceType)) return 8.5;
+        if ("t2.small".equals(instanceType)) return 17.0;
+        if ("t2.medium".equals(instanceType)) return 34.0;
+        if ("t2.large".equals(instanceType)) return 68.0;
+        return 8.5; // Default to t2.micro pricing
     }
 
     private double getRDSPrice(String instanceClass) {
-        return switch (instanceClass) {
-            case "db.t2.micro" -> 12.41;
-            case "db.t2.small" -> 24.82;
-            case "db.t2.medium" -> 49.64;
-            case "db.m5.large" -> 138.7;
-            default -> 12.41; // Default to db.t2.micro pricing
-        };
+        if ("db.t2.micro".equals(instanceClass)) return 12.41;
+        if ("db.t2.small".equals(instanceClass)) return 24.82;
+        if ("db.t2.medium".equals(instanceClass)) return 49.64;
+        if ("db.m5.large".equals(instanceClass)) return 138.7;
+        return 12.41; // Default to db.t2.micro pricing
     }
 
     private double getEBSPrice(String volumeType) {
-        return switch (volumeType) {
-            case "gp2" -> 0.10;
-            case "gp3" -> 0.08;
-            case "io1" -> 0.125;
-            case "st1" -> 0.045;
-            case "sc1" -> 0.025;
-            default -> 0.10; // Default to gp2 pricing
-        };
+        if ("gp2".equals(volumeType)) return 0.10;
+        if ("gp3".equals(volumeType)) return 0.08;
+        if ("io1".equals(volumeType)) return 0.125;
+        if ("st1".equals(volumeType)) return 0.045;
+        if ("sc1".equals(volumeType)) return 0.025;
+        return 0.10; // Default to gp2 pricing
     }
 }

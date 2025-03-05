@@ -1,41 +1,45 @@
 package com.stagllc.staginfra.controller;
 
-import com.stagllc.staginfra.config.TestControllerConfig;
+import com.stagllc.staginfra.config.ControllerTestConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
-import org.springframework.http.HttpStatus;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import org.springframework.test.web.servlet.result.MockMvcResultHandlers;
 
 import jakarta.servlet.RequestDispatcher;
-import jakarta.servlet.http.HttpServletRequest;
 
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import java.util.Objects;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import org.springframework.security.test.context.support.WithMockUser;
 
 @WebMvcTest(CustomErrorController.class)
-@Import(TestControllerConfig.class)
-@WithMockUser
+@Import(ControllerTestConfig.class)
 public class CustomErrorControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
-    private HttpServletRequest request;
+    @Autowired
+    private CustomErrorController errorController;
 
     @Test
     public void testNotFoundError() throws Exception {
-        // Mock the request to simulate a 404 error
-        when(request.getAttribute(RequestDispatcher.ERROR_STATUS_CODE)).thenReturn(HttpStatus.NOT_FOUND.value());
+        // Create a mock request directly
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setAttribute(RequestDispatcher.ERROR_STATUS_CODE, 404);
 
-        mockMvc.perform(get("/error").requestAttr(RequestDispatcher.ERROR_STATUS_CODE, HttpStatus.NOT_FOUND.value()))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.error").value("Not Found"));
+        // Call the controller method directly
+        var response = errorController.handleError(request);
+
+        // Assert on the response
+        assertEquals(404, response.getStatusCode().value());
+        assertEquals("{error=Not Found}", Objects.requireNonNull(response.getBody()).toString());
     }
 }

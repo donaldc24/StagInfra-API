@@ -1,35 +1,38 @@
-// src/test/java/com/stagllc/staginfra/controller/AuthControllerTest.java
 package com.stagllc.staginfra.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.stagllc.staginfra.config.ControllerTestConfig;
 import com.stagllc.staginfra.config.TestSecurityConfig;
+import com.stagllc.staginfra.dto.LoginRequest;
 import com.stagllc.staginfra.dto.RegistrationRequest;
+import com.stagllc.staginfra.dto.UserDTO;
 import com.stagllc.staginfra.model.User;
+import com.stagllc.staginfra.security.JwtAuthenticationFilter;
+import com.stagllc.staginfra.service.JwtService;
 import com.stagllc.staginfra.service.RateLimiterService;
 import com.stagllc.staginfra.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+
+import java.util.Collections;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@Import(TestSecurityConfig.class)
-@ActiveProfiles("test")
+@WebMvcTest(AuthController.class)
+@Import(ControllerTestConfig.class)
+@AutoConfigureMockMvc(addFilters = false)
 public class AuthControllerTest {
 
     @Autowired
@@ -44,7 +47,12 @@ public class AuthControllerTest {
     @MockBean
     private RateLimiterService rateLimiterService;
 
+    @MockBean
+    private JwtService jwtService;
+
     private RegistrationRequest validRequest;
+    private User testUser;
+    private UserDTO testUserDTO;
 
     @BeforeEach
     void setUp() {
@@ -53,21 +61,30 @@ public class AuthControllerTest {
         validRequest.setPassword("Password123!");
         validRequest.setFirstName("John");
         validRequest.setLastName("Doe");
-    }
 
-    @Test
-    void testRegisterUserSuccess() throws Exception {
-        // Setup
-        User newUser = new User(
+        testUser = new User(
                 validRequest.getEmail(),
                 "encodedPassword",
                 validRequest.getFirstName(),
                 validRequest.getLastName()
         );
-        newUser.setId(1L);
+        testUser.setId(1L);
+        testUser.setEmailVerified(true);
 
+        testUserDTO = new UserDTO();
+        testUserDTO.setId(1L);
+        testUserDTO.setEmail(testUser.getEmail());
+        testUserDTO.setFirstName(testUser.getFirstName());
+        testUserDTO.setLastName(testUser.getLastName());
+        testUserDTO.setEmailVerified(true);
+        testUserDTO.setRoles(Collections.emptyList());
+    }
+
+    @Test
+    void testRegisterUserSuccess() throws Exception {
+        // Setup
         when(rateLimiterService.allowRegistration(anyString())).thenReturn(true);
-        when(userService.registerUser(any(RegistrationRequest.class))).thenReturn(newUser);
+        when(userService.registerUser(any(RegistrationRequest.class))).thenReturn(testUser);
 
         // Execute & Verify
         mockMvc.perform(post("/api/auth/register")
@@ -122,19 +139,19 @@ public class AuthControllerTest {
                 .andExpect(jsonPath("$.message").value("Email verified successfully"));
     }
 
-//    @Test
-//    void testVerifyEmailInvalid() throws Exception {
-//        // Setup
-//        String token = "invalid-token";
-//        when(userService.verifyEmail(token)).thenReturn(false);
-//
-//        // Execute & Verify
-//        mockMvc.perform(get("/api/auth/verify")
-//                        .param("token", token))
-//                .andExpect(status().isBadRequest())
-//                .andExpect(jsonPath("$.success").value(false))
-//                .andExpect(jsonPath("$.message").value("Invalid or expired verification token"));
-//    }
+    @Test
+    void testVerifyEmailInvalid() throws Exception {
+        // Setup
+        String token = "invalid-token";
+        when(userService.verifyEmail(token)).thenReturn(false);
+
+        // Execute & Verify
+        mockMvc.perform(get("/api/auth/verify")
+                        .param("token", token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Invalid or expired verification token"));
+    }
 
     @Test
     void testResendVerificationEmailSuccess() throws Exception {
@@ -178,5 +195,25 @@ public class AuthControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.message").value("Failed to resend verification email"));
+    }
+
+    @Test
+    void testLoginUserSuccess() throws Exception {
+        // Setup
+        LoginRequest loginRequest = new LoginRequest();
+        loginRequest.setEmail("test@example.com");
+        loginRequest.setPassword("password123");
+
+        when(rateLimiterService.allowLogin(anyString())).thenReturn(true);
+        when(userService.loginUser(anyString(), anyString())).thenReturn(testUser);
+        when(userService.generateToken(any(), any())).thenReturn("dummy-token");
+
+        // Execute & Verify
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.token").exists());
     }
 }

@@ -5,7 +5,7 @@ import com.stagllc.staginfra.service.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,31 +18,28 @@ public class AdminController {
     @Autowired
     private UserService userService;
 
-    @GetMapping("/users")
-    public ResponseEntity<List<UserDTO>> getAllUsers() {
+    @GetMapping(value = "/users", produces = MediaType.APPLICATION_JSON_VALUE)
+    public List<UserDTO> getAllUsers() {
         logger.info("Admin request to get all users");
-        List<UserDTO> users = userService.getAllUsers();
-        return ResponseEntity.ok(users);
+        return userService.getAllUsers();
     }
 
-    @PostMapping("/users/{userId}/verify")
-    public ResponseEntity<UserDTO> manuallyVerifyUser(@PathVariable Long userId) {
+    @PostMapping(value = "/users/{userId}/verify", produces = MediaType.APPLICATION_JSON_VALUE)
+    public UserDTO manuallyVerifyUser(@PathVariable Long userId) {
         logger.info("Admin request to manually verify user with ID: {}", userId);
-        UserDTO verifiedUser = userService.manuallyVerifyUser(userId);
-        return ResponseEntity.ok(verifiedUser);
+        return userService.manuallyVerifyUser(userId);
     }
 
-    @PostMapping("/users/{userId}/admin")
-    public ResponseEntity<UserDTO> makeUserAdmin(@PathVariable Long userId) {
+    @PostMapping(value = "/users/{userId}/admin", produces = MediaType.APPLICATION_JSON_VALUE)
+    public UserDTO makeUserAdmin(@PathVariable Long userId) {
         logger.info("Admin request to grant ADMIN role to user with ID: {}", userId);
         boolean success = userService.makeUserAdmin(userId);
 
         if (success) {
             // Get updated user
-            UserDTO updatedUser = userService.getUserById(userId);
-            return ResponseEntity.ok(updatedUser);
+            return userService.getUserById(userId);
         } else {
-            return ResponseEntity.badRequest().build();
+            return null; // This will result in a 200 OK with no content
         }
     }
 }

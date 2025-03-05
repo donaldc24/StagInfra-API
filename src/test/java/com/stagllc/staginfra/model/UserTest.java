@@ -56,4 +56,40 @@ public class UserTest {
         user.setVerificationTokenExpiry(LocalDateTime.now().minusDays(1));
         assertFalse(user.isVerificationTokenValid());
     }
+
+    @Test
+    void testRoles() {
+        // Setup
+        User user = new User();
+
+        // Empty roles
+        assertEquals(0, user.getRolesList().size());
+
+        // Add roles
+        user.addRole("USER");
+        assertEquals(1, user.getRolesList().size());
+        assertTrue(user.hasRole("USER"));
+
+        // Add duplicate role
+        user.addRole("USER");
+        assertEquals(1, user.getRolesList().size());
+
+        // Add another role
+        user.addRole("ADMIN");
+        assertEquals(2, user.getRolesList().size());
+        assertTrue(user.hasRole("ADMIN"));
+
+        // Remove role
+        user.removeRole("USER");
+        assertEquals(1, user.getRolesList().size());
+        assertFalse(user.hasRole("USER"));
+        assertTrue(user.hasRole("ADMIN"));
+
+        // Set roles directly
+        user.setRoles("EDITOR,VIEWER");
+        assertEquals(2, user.getRolesList().size());
+        assertTrue(user.hasRole("EDITOR"));
+        assertTrue(user.hasRole("VIEWER"));
+        assertFalse(user.hasRole("ADMIN"));
+    }
 }
